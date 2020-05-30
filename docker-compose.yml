@@ -1,4 +1,4 @@
-version: "3"
+version: "3.2"
 
 volumes:
   esdata01:
@@ -15,12 +15,15 @@ services:
     environment:
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - discovery.type=single-node
+      - xpack.monitors.enabled=false
     ulimits:
       memlock:
         soft: -1
         hard: -1
     volumes:
       - esdata01:/usr/share/elasticsearch/data
+    networks:
+      - elk
   kibana:
     image: docker.elastic.co/kibana/kibana:7.7.0
     container_name: kibana
@@ -32,19 +35,24 @@ services:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
     depends_on:
       - elasticsearch
+    networks:
+      - elk
   logstash:
     image: docker.elastic.co/logstash/logstash:7.7.0
-    command: logstash -f /etc/logstash/conf.d/logstash.conf
+    container_name: logstash
+    environment:
+    - "LS_JAVA_OPTS:-Xmx256m -Xms256m"
     volumes:
-      - ./logstash:/etc/logstash/conf.d
-      #- ./logstash/patterns:/opt/logstash/patterns
+      - type: bind
+        source: ./logstash/pipeline/logstash.conf
+        target: /usr/share/logstash/pipeline/logstash.conf
+      - type: bind
+        source: ./logstash/config/logstash.yml
+        target: /usr/share/logstash/config/logstash.yml
     depends_on:
       - elasticsearch
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:7.7.0
-    volumes:
-      - ./filebeat/filebeat.yml:/filebeat.yml
-    restart: unless-stopped
-    depends_on:
-      - logstash
+networks:
+  elk:
+    driver: bridge
+
 
