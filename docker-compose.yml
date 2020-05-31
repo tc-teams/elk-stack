@@ -15,15 +15,20 @@ services:
     environment:
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - discovery.type=single-node
-      - xpack.monitors.enabled=false
+      - "ELASTIC_PASSWORD=changeme"
     ulimits:
       memlock:
         soft: -1
         hard: -1
     volumes:
       - esdata01:/usr/share/elasticsearch/data
+      - type: bind
+        source: ./elasticsearch/config/elasticsearch.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
     networks:
       - elk
+    healthcheck:
+      test: ["CMD", "curl","-s" ,"-f", "-u", "http://localhost:9200/_cat/health"]
   kibana:
     image: docker.elastic.co/kibana/kibana:7.7.0
     container_name: kibana
@@ -40,17 +45,35 @@ services:
   logstash:
     image: docker.elastic.co/logstash/logstash:7.7.0
     container_name: logstash
-    environment:
-    - "LS_JAVA_OPTS:-Xmx256m -Xms256m"
     volumes:
       - type: bind
         source: ./logstash/pipeline/logstash.conf
         target: /usr/share/logstash/pipeline/logstash.conf
+        read_only: true
       - type: bind
         source: ./logstash/config/logstash.yml
         target: /usr/share/logstash/config/logstash.yml
+        read_only: true
+    ports:
+    - "5044:5044"
+    environment:
+      - "LS_JAVA_OPTS: -Xmx256m -Xms256m"
     depends_on:
       - elasticsearch
+    networks:
+      - elk
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.7.0
+    container_name: filebeat
+    volumes:
+      - type: volume
+        source: ./monitors/filebeat/filebeat.yml
+        target: /usr/share/filebeat/filebeat.yml
+    restart: unless-stopped
+    depends_on:
+      - logstash
+    networks:
+      - elk
 networks:
   elk:
     driver: bridge
