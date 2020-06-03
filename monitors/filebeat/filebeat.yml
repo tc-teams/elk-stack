@@ -1,6 +1,24 @@
+#container that is specifically designed to import logs from docker
+#ou only need to specify the location of the log files inside the FileBeat container, which in our case is /var/lib/docker/containers/*/*.log.
+# Its goal is to enrich the docker logs with useful information, such as the name of the image or the name of the container
+#It allows to parse logs encoded in JSON.
+#settings concern FileBeat own logs.
+
 filebeat.inputs:
     - type: container
       paths:
         - '/var/lib/docker/containers/*/*.log'
+      scan_frequency: 30s
+processors:
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+  - decode_json_fields:
+      fields: ["message"]
+      target: "json"
+      overwrite_keys: true
+
 output.logstash:
-    hosts: [ "http://logstash:5044" ]
+    hosts: [ "logstash:5044" ]
+
+logging.json: true
+logging.metrics.enabled: false

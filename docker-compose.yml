@@ -28,11 +28,16 @@ services:
     networks:
       - elk
     healthcheck:
-      test: ["CMD", "curl","-s" ,"-f", "-u", "http://localhost:9200/_cat/health"]
+      test: ["CMD", "curl","-s" ,"-f", "-u", "http://elastic:9200/_cat/health"]
   kibana:
     image: docker.elastic.co/kibana/kibana:7.7.0
     container_name: kibana
     restart: unless-stopped
+    volumes:
+      - type: bind
+        source: ./kibana/config/kibana.yml
+        target: /usr/share/kibana/config/kibana.yml
+        read_only: true
     ports:
       - "5601:5601"
     environment:
@@ -55,7 +60,9 @@ services:
         target: /usr/share/logstash/config/logstash.yml
         read_only: true
     ports:
-    - "5044:5044"
+    - "5044:5044/tcp"
+    - "5044:5044/udp"
+    - "9600:9600"
     environment:
       - "LS_JAVA_OPTS: -Xmx256m -Xms256m"
     depends_on:
@@ -65,10 +72,17 @@ services:
   filebeat:
     image: docker.elastic.co/beats/filebeat:7.7.0
     container_name: filebeat
+    user: root
     volumes:
       - type: volume
         source: ./monitors/filebeat/filebeat.yml
-        target: /usr/share/filebeat/filebeat.yml
+        target: /usr/share/filebeat/filebeat.yml:ro
+      - type: volume
+        source: /var/lib/docker
+        target: /var/lib/docker:ro
+      - type: volume
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
     restart: unless-stopped
     depends_on:
       - logstash
