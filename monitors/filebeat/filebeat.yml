@@ -4,12 +4,17 @@
 #It allows to parse logs encoded in JSON.
 #settings concern FileBeat own logs.
 
-filebeat.inputs:
-  - type: container
-    stream: stdout
-    paths:
-      - Jy92YXIvbGliL2RvY2tlci9jb250YWluZXJzLzE1NjBlYTZlM2QwZmRiZmViZDI5NTE1NzhmM2JlNDM0MzRmZjM2OWZhYWQ3MzVmMDM1MzE2ODIxOThmYzI0YWIvMTU2MGVhNmUzZDBmZGJmZWJkMjk1MTU3OGYzYmU0MzQzNGZmMzY5ZmFhZDczNWYwMzUzMTY4MjE5OGZjMjRhYi1qc29uLmxvZyc=
-    scan_frequency: 80s
+filebeat.autodiscover.providers:
+  - type: docker
+    templates:
+      - condition:
+          contains:
+            docker.container.name: app
+        config:
+          - type: container
+            paths:
+              - /var/lib/docker/containers/${data.docker.container.id}/*-json.log
+            exclude_lines: ["^\\s+[\\-`('.|_]"]  # drop asciiart lines
 processors:
   - decode_json_fields:
       fields: ["message"]
@@ -19,5 +24,5 @@ processors:
 output.logstash:
     hosts: [ "logstash:5044" ]
 
-logging.json: true
+logging.json: false
 logging.metrics.enabled: false
